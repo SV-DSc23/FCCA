@@ -27,10 +27,6 @@ if old_pdf and new_pdf:
         with open("input/old.pdf", "wb") as f:
             f.write(old_pdf.read())
 
-        import os
-
-        os.makedirs("input", exist_ok=True)
-
         with open("input/new.pdf", "wb") as f:
             f.write(new_pdf.read())
 
