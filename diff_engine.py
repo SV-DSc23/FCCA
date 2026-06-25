@@ -1,45 +1,88 @@
-from rapidfuzz import fuzz
-
-def compare_commands(old_cmds, new_cmds):
+def compare_commands(
+    old_cmds,
+    new_cmds
+):
 
     old_names = set(old_cmds.keys())
     new_names = set(new_cmds.keys())
 
     added = []
 
-    for cmd in sorted(new_names - old_names):
+    for cmd in sorted(
+        new_names - old_names
+    ):
 
-        added.append({
-            "Section": new_cmds[cmd],
-            "Command": cmd
-        })
+        added.append(
+            {
+                "Command": cmd,
+                "Source File":
+                    new_cmds[cmd]["file"]
+            }
+        )
 
     removed = []
 
-    for cmd in sorted(old_names - new_names):
+    for cmd in sorted(
+        old_names - new_names
+    ):
 
-        removed.append({
-            "Section": old_cmds[cmd],
-            "Command": cmd
-        })
+        removed.append(
+            {
+                "Command": cmd,
+                "Source File":
+                    old_cmds[cmd]["file"]
+            }
+        )
 
     modified = []
 
-    for old_cmd in old_names:
+    common = old_names.intersection(
+        new_names
+    )
 
-        for new_cmd in new_names:
+    for cmd in sorted(common):
 
-            score = fuzz.ratio(
-                old_cmd,
-                new_cmd
+        old_data = old_cmds[cmd]
+        new_data = new_cmds[cmd]
+
+        changes = []
+
+        if (
+            old_data["help"]
+            != new_data["help"]
+        ):
+            changes.append(
+                "Help Text"
             )
 
-            if 85 < score < 100:
+        if (
+            old_data["feature_id"]
+            != new_data["feature_id"]
+        ):
+            changes.append(
+                "Feature ID"
+            )
 
-                modified.append({
-                    "Old Command": old_cmd,
-                    "New Command": new_cmd,
-                    "Similarity": round(score,2)
-                })
+        if changes:
 
-    return added, removed, modified
+            modified.append(
+                {
+                    "Command": cmd,
+                    "Changed Fields":
+                        ", ".join(changes),
+                    "Old Help":
+                        old_data["help"],
+                    "New Help":
+                        new_data["help"],
+                    "Old Feature":
+                        old_data["feature_id"],
+                    "New Feature":
+                        new_data["feature_id"]
+                }
+            )
+
+    return (
+        added,
+        removed,
+        modified
+    )
