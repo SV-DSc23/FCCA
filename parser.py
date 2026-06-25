@@ -1,50 +1,86 @@
-import pdfplumber
-import re
+import zipfile
+import xml.etree.ElementTree as ET
+from io import BytesIO
 
-def extract_commands(pdf_path):
+
+def extract_commands(zip_path):
 
     commands = {}
 
-    print(f"\nOPENING PDF: {pdf_path}")
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
 
-    with pdfplumber.open(pdf_path) as pdf:
+        xml_files = [
+            f for f in zip_ref.namelist()
+            if f.endswith(".xml")
+        ]
 
-        print(f"TOTAL PAGES = {len(pdf.pages)}")
+        print(f"XML FILES FOUND = {len(xml_files)}")
 
-        for page in pdf.pages:
+        for xml_file in xml_files:
 
-            text = page.extract_text()
+            try:
 
-            if not text:
-                continue
+                xml_content = zip_ref.read(xml_file)
 
-            lines = text.split("\n")
+                root = ET.fromstring(xml_content)
 
-            for line in lines:
-
-                line = line.strip()
-
-                match = re.match(
-                    r'^(\d+(?:\.\d+)+)\s+(.+)$',
-                    line
+                walk_commands(
+                    root,
+                    commands,
+                    xml_file
                 )
 
-                if match:
+            except Exception as e:
 
-                    section = match.group(1)
-                    command = match.group(2).strip()
-
-                    if (
-                        len(command) > 3
-                        and "Mode:" not in command
-                        and "Privilege" not in command
-                        and "Format:" not in command
-                    ):
-
-                        commands[command] = section
+                print(
+                    f"ERROR parsing {xml_file}: {e}"
+                )
 
     print(
-        f"COMMANDS FOUND = {len(commands)}"
+        f"TOTAL COMMANDS FOUND = {len(commands)}"
     )
 
     return commands
+
+
+def walk_commands(
+    node,
+    commands,
+    source_file,
+    parent_path=""
+):
+
+    tag = node.tag.split("}")[-1]
+
+    if tag == "command":
+
+        cmd_name = node.attrib.get("name", "")
+
+        if cmd_name:
+
+            full_path = (
+                f"{parent_path} {cmd_name}"
+            ).strip()
+
+            commands[full_path] = {
+                "file": source_file,
+                "help": node.attrib.get(
+                    "help",
+                    ""
+                ),
+                "feature_id": node.attrib.get(
+                    "feature_id",
+                    ""
+                )
+            }
+
+            parent_path = full_path
+
+    for child in node:
+
+        walk_commands(
+            child,
+            commands,
+            source_file,
+            parent_path
+        )
